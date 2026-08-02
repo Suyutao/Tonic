@@ -1,0 +1,170 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : "system-light"
+    },
+    {
+      "appearance" : "dark",
+      "value" : "system-dark"
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:0.25946,0.25946,0.25946,1.00000",
+                  "srgb:0.80734,0.80734,0.80734,0.23092"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 0.6983202743962938
+                  },
+                  "stop" : {
+                    "x" : 0.5000000000000002,
+                    "y" : 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:1.00000,1.00000,1.00000,0.41467",
+                  "display-p3:0.95000,0.95000,0.95000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.4165921639898997,
+                    "y" : 1
+                  },
+                  "stop" : {
+                    "x" : 0.6559562699105873,
+                    "y" : 0.6856443914922122
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:0.75505,0.75505,0.75505,0.75619",
+                  "srgb:0.31417,0.31417,0.31417,0.09572"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5000000000000001,
+                    "y" : 0.6852839353027352
+                  },
+                  "stop" : {
+                    "x" : 0.43844365303180904,
+                    "y" : 1
+                  }
+                }
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "tuningfork.svg",
+          "name" : "tuningfork",
+          "position" : {
+            "scale" : 0.75,
+            "translation-in-points" : [
+              -109.83246114688353,
+              -79.54580999999996
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:0.05934,0.05934,0.05934,1.00000",
+                  "srgb:0.34056,0.34056,0.34056,0.15694"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.11482320159900072,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5419047017427834,
+                    "y" : 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:1.00000,1.00000,1.00000,0.29204",
+                  "srgb:1.00000,1.00000,1.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5542413318395224,
+                    "y" : 1
+                  },
+                  "stop" : {
+                    "x" : 0.2297776002550455,
+                    "y" : 0
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:0.85448,0.85449,0.85449,0.82661",
+                  "srgb:0.20129,0.20129,0.20129,0.04377"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.11482320159900072,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5419047017427834,
+                    "y" : 1
+                  }
+                }
+              }
+            }
+          ],
+          "image-name" : "metronome.svg",
+          "name" : "metronome",
+          "position" : {
+            "scale" : 0.66,
+            "translation-in-points" : [
+              136.39971114688342,
+              128.05050000000006
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

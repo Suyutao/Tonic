@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "zh-Hans",
+  "strings" : {
+    "NSMicrophoneUsageDescription" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tone Tuner uses the microphone to identify the note you play." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Tone Tuner 使用麦克风识别你弹奏的音高。" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
