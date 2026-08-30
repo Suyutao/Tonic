@@ -1,5 +1,5 @@
 import XCTest
-@testable import Tone_Tuner
+@testable import Tonic
 
 final class AudioStateTests: XCTestCase {
     func testOnlyStartingAndRunningAreActive() {

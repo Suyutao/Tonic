@@ -1,7 +1,7 @@
 import SwiftUI
 import XCTest
 import UIKit
-@testable import Tone_Tuner
+@testable import Tonic
 
 @MainActor
 final class VisualRenderTests: XCTestCase {
