@@ -5,6 +5,24 @@ import UIKit
 
 @MainActor
 final class VisualRenderTests: XCTestCase {
+    func testRenderTunerHistoryAnnotations() throws {
+        let values = (0..<120).map { Double(($0 * 13) % 80 - 40) }
+        let changes = [
+            TunerNoteChange(index: 18, name: "A3"),
+            TunerNoteChange(index: 61, name: "C♯4"),
+            TunerNoteChange(index: 99, name: "E4")
+        ]
+
+        try render(
+            TunerHistoryGraph(values: values, noteChanges: changes)
+                .padding(12)
+                .background(ToneTunerDesign.background)
+                .environment(\.colorScheme, .dark),
+            name: "tuner-history-annotations-dark",
+            size: CGSize(width: 402, height: 186)
+        )
+    }
+
     func testRenderRepresentativeTunerStates() throws {
         try render(
             ContentView(initialPage: 0)
@@ -27,11 +45,35 @@ final class VisualRenderTests: XCTestCase {
 
         try render(
             ContentView(initialPage: 0)
+                .environment(\.locale, Locale(identifier: "zh-Hans"))
+                .environment(\.dynamicTypeSize, .accessibility5),
+            name: "tuner-iphonese-accessibility-dark",
+            size: CGSize(width: 375, height: 667),
+            traits: UITraitCollection { traits in
+                traits.userInterfaceStyle = .dark
+                traits.accessibilityContrast = .high
+            }
+        )
+
+        try render(
+            ContentView(initialPage: 0)
                 .environment(\.locale, Locale(identifier: "en"))
                 .environment(\.colorScheme, .light)
                 .environment(\.dynamicTypeSize, .accessibility5),
             name: "tuner-landscape-english",
             size: CGSize(width: 874, height: 402)
+        )
+
+        try render(
+            ContentView(initialPage: 0)
+                .environment(\.locale, Locale(identifier: "zh-Hans"))
+                .environment(\.dynamicTypeSize, .accessibility5),
+            name: "tuner-iphone12pro-accessibility-dark",
+            size: CGSize(width: 390, height: 844),
+            traits: UITraitCollection { traits in
+                traits.userInterfaceStyle = .dark
+                traits.accessibilityContrast = .high
+            }
         )
     }
 
@@ -57,11 +99,35 @@ final class VisualRenderTests: XCTestCase {
 
         try render(
             ContentView(initialPage: 1)
+                .environment(\.locale, Locale(identifier: "zh-Hans"))
+                .environment(\.dynamicTypeSize, .accessibility5),
+            name: "metronome-iphonese-accessibility-dark",
+            size: CGSize(width: 375, height: 667),
+            traits: UITraitCollection { traits in
+                traits.userInterfaceStyle = .dark
+                traits.accessibilityContrast = .high
+            }
+        )
+
+        try render(
+            ContentView(initialPage: 1)
                 .environment(\.locale, Locale(identifier: "en"))
                 .environment(\.colorScheme, .light)
                 .environment(\.dynamicTypeSize, .accessibility5),
             name: "metronome-landscape-english",
             size: CGSize(width: 874, height: 402)
+        )
+
+        try render(
+            ContentView(initialPage: 1)
+                .environment(\.locale, Locale(identifier: "zh-Hans"))
+                .environment(\.dynamicTypeSize, .accessibility5),
+            name: "metronome-iphone12pro-accessibility-dark",
+            size: CGSize(width: 390, height: 844),
+            traits: UITraitCollection { traits in
+                traits.userInterfaceStyle = .dark
+                traits.accessibilityContrast = .high
+            }
         )
     }
 

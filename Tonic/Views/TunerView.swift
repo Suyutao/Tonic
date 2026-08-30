@@ -92,6 +92,7 @@ struct PitchReading {
 }
 
 struct TunerPage: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var detector: PitchDetector
     let reading: PitchReading?
     let history: [Double]
@@ -99,20 +100,37 @@ struct TunerPage: View {
     let noteNamingStyle: NoteNamingStyle
     let accidentalStyle: AccidentalStyle
 
+    private var usesCompactLayout: Bool { dynamicTypeSize.isAccessibilitySize }
+    private var upperSpacing: CGFloat { usesCompactLayout ? 60 : 93 }
+    private var minimumPanelHeight: CGFloat { 33 + upperSpacing + 218 + 12 + 162 + 24 + 11 }
+
     var body: some View {
-        tunerPanel
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
-            .padding(.bottom, 10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        GeometryReader { proxy in
+            Group {
+                if usesCompactLayout && proxy.size.height < minimumPanelHeight + 20 {
+                    ScrollView(.vertical) {
+                        tunerPanel
+                            .frame(minHeight: minimumPanelHeight)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 10)
+                    }
+                    .scrollIndicators(.hidden)
+                } else {
+                    tunerPanel
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+            }
             .background(ToneTunerDesign.background)
+        }
     }
 
     private var tunerPanel: some View {
         VStack(spacing: 0) {
             RainbowPositionStrip(cents: reading?.cents)
                 .padding(.horizontal, 11)
-            Color.clear.frame(height: 93)
+            Color.clear.frame(height: upperSpacing)
             VStack(spacing: 10) {
                 Text(reading.map { String(format: "%.0f Hz", $0.frequency) } ?? "-- Hz")
                     .font(.title2)
@@ -135,7 +153,7 @@ struct TunerPage: View {
             .padding(10)
             .frame(maxWidth: .infinity)
             .frame(height: 218)
-            Spacer(minLength: 24)
+            Spacer(minLength: usesCompactLayout ? 12 : 24)
             TunerHistoryGraph(values: history, noteChanges: noteChanges)
                 .frame(height: 162)
                 .padding(12)
@@ -143,7 +161,7 @@ struct TunerPage: View {
                 .padding(.horizontal, 11)
                 .padding(.bottom, 11)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
         .toneTunerSurface(fill: ToneTunerDesign.backgroundElevated, stroke: ToneTunerDesign.fillPrimary, cornerRadius: 36)
         .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
     }

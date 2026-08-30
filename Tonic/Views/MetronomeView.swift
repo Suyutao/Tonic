@@ -12,6 +12,8 @@ struct MetronomePage: View {
 
     private var engineTempo: Int { Int(tempo.rounded()) }
     private var usesCompactControls: Bool { dynamicTypeSize.isAccessibilitySize }
+    private var controlsHeight: CGFloat { usesCompactControls ? 311 : 162 }
+    private var minimumPanelHeight: CGFloat { 21 + 33 + 188 + controlsHeight }
     private var tempoMarking: LocalizedStringKey {
         switch engineTempo {
         case ..<80: "广板"
@@ -23,42 +25,61 @@ struct MetronomePage: View {
     }
 
     var body: some View {
-        displayPanel
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
-            .padding(.bottom, 10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        GeometryReader { proxy in
+            Group {
+                if usesCompactControls && proxy.size.height < minimumPanelHeight + 20 {
+                    ScrollView(.vertical) {
+                        displayPanel
+                            .frame(height: minimumPanelHeight)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 10)
+                    }
+                    .scrollIndicators(.hidden)
+                } else {
+                    displayPanel
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+            }
             .background(ToneTunerDesign.background)
+        }
     }
 
     private var displayPanel: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                ForEach(0..<metronome.activeBeatsPerBar, id: \.self) { beat in
-                    Circle()
-                        .fill(beat == metronome.currentBeat && metronome.isPlaying ? (beat == 0 ? ToneTunerDesign.tint : ToneTunerDesign.primaryLabel) : ToneTunerDesign.secondaryLabel)
-                        .frame(width: 10, height: 10)
-                        .scaleEffect(!reduceMotion && beat == metronome.currentBeat && metronome.isPlaying ? 1.15 : 1)
-                }
-            }
-            .frame(height: 33)
-            Spacer(minLength: usesCompactControls ? 8 : 116)
+        GeometryReader { proxy in
+            let availableGap = max(0, proxy.size.height - 21 - 33 - 188 - controlsHeight)
+            let upperGap = availableGap * 0.382
+            let lowerGap = availableGap * 0.618
+
             VStack(spacing: 0) {
-                Text(tempoMarking).font(.title2).foregroundStyle(ToneTunerDesign.secondaryLabel)
-                Text("\(engineTempo)")
-                    .font(.system(size: 128, weight: .bold, design: .rounded))
-                    .foregroundStyle(ToneTunerDesign.primaryLabel)
-                    .shadow(color: ToneTunerDesign.primaryLabel.opacity(0.28), radius: 6, y: 4)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 140)
-                    .minimumScaleFactor(0.5)
+                HStack(spacing: 10) {
+                    ForEach(0..<metronome.activeBeatsPerBar, id: \.self) { beat in
+                        Circle()
+                            .fill(beat == metronome.currentBeat && metronome.isPlaying ? (beat == 0 ? ToneTunerDesign.tint : ToneTunerDesign.primaryLabel) : ToneTunerDesign.secondaryLabel)
+                            .frame(width: 10, height: 10)
+                            .scaleEffect(!reduceMotion && beat == metronome.currentBeat && metronome.isPlaying ? 1.15 : 1)
+                    }
+                }
+                .frame(height: 33)
+                Color.clear.frame(height: upperGap)
+                VStack(spacing: 0) {
+                    Text(tempoMarking).font(.title2).foregroundStyle(ToneTunerDesign.secondaryLabel)
+                    Text("\(engineTempo)")
+                        .font(.system(size: 128, weight: .bold, design: .rounded))
+                        .foregroundStyle(ToneTunerDesign.primaryLabel)
+                        .shadow(color: ToneTunerDesign.primaryLabel.opacity(0.28), radius: 6, y: 4)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 140)
+                        .minimumScaleFactor(0.5)
+                }
+                .frame(height: 188)
+                Color.clear.frame(height: lowerGap)
+                controls.padding(.bottom, 11)
             }
-            .frame(height: 188)
-            Spacer(minLength: usesCompactControls ? 12 : 24)
-            controls.padding(.bottom, 11)
+            .padding(.horizontal, 11)
+            .padding(.top, 21)
         }
-        .padding(.horizontal, 11)
-        .padding(.top, 21)
         .toneTunerSurface(fill: ToneTunerDesign.backgroundElevated, stroke: ToneTunerDesign.fillPrimary, cornerRadius: 36)
     }
 
@@ -147,7 +168,7 @@ struct MetronomePage: View {
 
     private func tapButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("轻按定拍")
+            Text("点击取拍")
                 .font(.headline)
                 .foregroundStyle(ToneTunerDesign.primaryLabel)
                 .lineLimit(1)
@@ -164,7 +185,7 @@ struct MetronomePage: View {
         .gesture(tapOnTouchDown)
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
-        .accessibilityLabel("轻按定拍")
+        .accessibilityLabel("点击取拍")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { tap() }
     }
