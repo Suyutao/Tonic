@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CoreHaptics
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -93,6 +94,7 @@ struct ContentView: View {
             if tunerNoteChanges.count > 12 { tunerNoteChanges.removeFirst(tunerNoteChanges.count - 12) }
         }
         .onChange(of: selectedPage) { _, page in
+            TonicHaptics.shared.playPageSwitch()
             if page == 0 {
                 metronome.stop()
             } else {
@@ -171,6 +173,51 @@ struct ContentView: View {
 }
 
 #Preview { ContentView() }
+
+private final class TonicHaptics {
+    static let shared = TonicHaptics()
+
+    private let engine: CHHapticEngine?
+
+    private init() {
+        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else {
+            engine = nil
+            return
+        }
+
+        do {
+            let engine = try CHHapticEngine()
+            self.engine = engine
+            try? engine.start()
+        } catch {
+            engine = nil
+        }
+    }
+
+    func playPageSwitch() {
+        guard let engine else {
+            UISelectionFeedbackGenerator().selectionChanged()
+            return
+        }
+
+        do {
+            try engine.start()
+            let event = CHHapticEvent(
+                eventType: .hapticTransient,
+                parameters: [
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.36),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.20)
+                ],
+                relativeTime: 0
+            )
+            let pattern = try CHHapticPattern(events: [event], parameters: [])
+            let player = try engine.makePlayer(with: pattern)
+            try player.start(atTime: 0)
+        } catch {
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
+}
 
 private struct TonicSettingsView: View {
     @Environment(\.dismiss) private var dismiss
