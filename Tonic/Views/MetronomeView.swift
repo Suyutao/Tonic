@@ -106,12 +106,12 @@ struct MetronomeView: View {
 
     @ViewBuilder private var controls: some View {
         if usesCompactControls {
-            VStack(spacing: 18) {
+            VStack(spacing: 11) {
                 compactTempoControl
                 signatureButton(height: 108)
                 tapButton(height: 87)
             }
-            .frame(maxWidth: .infinity, minHeight: 285, maxHeight: 285, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 271, maxHeight: 271, alignment: .top)
         } else {
             GeometryReader { proxy in
             let controlWidth = proxy.size.width
@@ -301,12 +301,12 @@ struct MetronomePage: View {
 
     @ViewBuilder private var controls: some View {
         if usesCompactControls {
-            VStack(spacing: 18) {
+            VStack(spacing: 11) {
                 compactTempoControl
                 signatureButton(height: 108)
                 tapButton(height: 87)
             }
-            .frame(maxWidth: .infinity, minHeight: 285, maxHeight: 285, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 271, maxHeight: 271, alignment: .top)
         } else {
             VStack(spacing: 10) {
             HStack(spacing: 12) {
