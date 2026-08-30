@@ -104,8 +104,16 @@ struct MetronomeView: View {
         .accessibilityElement(children: .ignore).accessibilityLabel("节拍器").accessibilityValue(metronomeAccessibilityValue)
     }
 
-    private var controls: some View {
-        GeometryReader { proxy in
+    @ViewBuilder private var controls: some View {
+        if usesCompactControls {
+            VStack(spacing: 18) {
+                compactTempoControl
+                signatureButton(height: 108)
+                tapButton(height: 87)
+            }
+            .frame(maxWidth: .infinity, minHeight: 285, maxHeight: 285, alignment: .top)
+        } else {
+            GeometryReader { proxy in
             let controlWidth = proxy.size.width
             let endpointWidth = min(32, max(24, controlWidth * 0.088))
             let horizontalInset = min(16, max(8, controlWidth * 0.044))
@@ -114,7 +122,7 @@ struct MetronomeView: View {
             let signatureWidth = lowerRowWidth * 213 / 362
             let tapWidth = lowerRowWidth - signatureWidth
 
-            VStack(spacing: usesCompactControls ? 18 : 10) {
+            VStack(spacing: 10) {
                 HStack(spacing: 12) {
                     Image(systemName: "tortoise.fill")
                         .font(.system(size: 20, weight: .semibold))
@@ -131,24 +139,36 @@ struct MetronomeView: View {
                 .padding(.horizontal, horizontalInset)
                 .frame(width: controlWidth, height: 54)
                 .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
-                if usesCompactControls {
-                    VStack(spacing: 18) {
-                        signatureButton.frame(width: controlWidth, height: 87)
-                        tapButton.frame(width: controlWidth, height: 87)
-                    }
-                    .frame(width: controlWidth, alignment: .top)
-                } else {
-                    HStack(alignment: .top, spacing: 10) {
-                        signatureButton.frame(width: signatureWidth, height: 87)
-                        tapButton.frame(width: tapWidth, height: 87)
-                    }
+                HStack(alignment: .top, spacing: 10) {
+                    signatureButton(height: 87).frame(width: signatureWidth)
+                    tapButton(height: 87).frame(width: tapWidth)
                 }
             }
+            }
+            .frame(maxWidth: .infinity, minHeight: 151, maxHeight: 151)
         }
-        .frame(maxWidth: .infinity, minHeight: usesCompactControls ? 264 : 151, maxHeight: usesCompactControls ? 264 : 151)
     }
 
-    private var signatureButton: some View {
+    private var compactTempoControl: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "tortoise.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                .frame(width: 32, height: 50)
+            Slider(value: $tempo, in: 40...240, step: 1)
+                .tint(ToneTunerDesign.tint)
+                .frame(maxWidth: .infinity, minHeight: 50)
+            Image(systemName: "hare.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                .frame(width: 32, height: 50)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 54, maxHeight: 54)
+        .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
+    }
+
+    private func signatureButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("拍号").font(.system(size: 17)).foregroundStyle(ToneTunerDesign.primaryLabel)
             Spacer()
@@ -157,10 +177,11 @@ struct MetronomeView: View {
             }.tint(ToneTunerDesign.tint).frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 17).padding(.top, 11).padding(.bottom, 0)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
         .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
     }
 
-    private var tapButton: some View {
+    private func tapButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("点击取拍").font(.system(size: 17)).foregroundStyle(ToneTunerDesign.primaryLabel)
             Spacer()
@@ -169,8 +190,8 @@ struct MetronomeView: View {
         .padding(10).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .gesture(tapOnTouchDown)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
-        .frame(maxWidth: .infinity, minHeight: 87, maxHeight: 87)
         .accessibilityLabel("点击取拍")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { registerTap() }
@@ -279,7 +300,15 @@ struct MetronomePage: View {
     }
 
     @ViewBuilder private var controls: some View {
-        VStack(spacing: usesCompactControls ? 18 : 10) {
+        if usesCompactControls {
+            VStack(spacing: 18) {
+                compactTempoControl
+                signatureButton(height: 108)
+                tapButton(height: 87)
+            }
+            .frame(maxWidth: .infinity, minHeight: 285, maxHeight: 285, alignment: .top)
+        } else {
+            VStack(spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: "tortoise.fill")
                     .font(.system(size: 20, weight: .semibold))
@@ -299,28 +328,40 @@ struct MetronomePage: View {
             .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
 
             GeometryReader { proxy in
-                if usesCompactControls {
-                    VStack(spacing: 18) {
-                        signatureButton(width: proxy.size.width)
-                        tapButton(width: proxy.size.width)
-                    }
-                    .frame(width: proxy.size.width, alignment: .top)
-                } else {
                     let available = max(0, proxy.size.width - 10)
                     let signatureWidth = available * 213 / 352
                     let tapWidth = available - signatureWidth
                     HStack(alignment: .top, spacing: 10) {
-                        signatureButton(width: signatureWidth)
-                        tapButton(width: tapWidth)
+                        signatureButton(height: 87).frame(width: signatureWidth)
+                        tapButton(height: 87).frame(width: tapWidth)
                     }
                     .frame(width: proxy.size.width, height: 87)
-                }
             }
-            .frame(height: usesCompactControls ? 192 : 87)
+            .frame(height: 87)
+            }
         }
     }
 
-    private func signatureButton(width: CGFloat) -> some View {
+    private var compactTempoControl: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "tortoise.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                .frame(width: 32, height: 50)
+            Slider(value: $tempo, in: 40...240, step: 1)
+                .tint(ToneTunerDesign.tint)
+                .frame(maxWidth: .infinity, minHeight: 50)
+            Image(systemName: "hare.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                .frame(width: 32, height: 50)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 54, maxHeight: 54)
+        .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
+    }
+
+    private func signatureButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("拍号").font(.headline).foregroundStyle(ToneTunerDesign.primaryLabel)
             Spacer()
@@ -332,11 +373,11 @@ struct MetronomePage: View {
         }
         .padding(.horizontal, 17)
         .padding(.top, 11)
-        .frame(width: width, height: 87, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
         .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
     }
 
-    private func tapButton(width: CGFloat) -> some View {
+    private func tapButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("点击取拍").font(.headline).foregroundStyle(ToneTunerDesign.primaryLabel)
             Spacer()
@@ -348,7 +389,7 @@ struct MetronomePage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .gesture(tapOnTouchDown)
-        .frame(width: width, height: 87)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
         .accessibilityLabel("点击取拍")
         .accessibilityAddTraits(.isButton)
