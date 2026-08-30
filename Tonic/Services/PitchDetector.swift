@@ -2,6 +2,20 @@ import AVFoundation
 import Combine
 import Foundation
 
+enum PitchInputSensitivity: String {
+    case maximum
+    case high
+    case standard
+
+    var minimumInputLevel: Float {
+        switch self {
+        case .maximum: .leastNonzeroMagnitude
+        case .high: 0.002
+        case .standard: 0.004
+        }
+    }
+}
+
 final class PitchDetector: ObservableObject {
     @Published private(set) var frequency: Double?
     @Published private(set) var inputLevel: Float = 0
@@ -12,10 +26,14 @@ final class PitchDetector: ObservableObject {
 
     private let engine = AVAudioEngine()
     private let sessionCoordinator: AudioSessionCoordinating
+    private let lifecycleQueue = DispatchQueue(label: "com.suyutao.tonic.pitch-lifecycle", qos: .userInitiated)
     private var stateMachine = AudioEngineStateMachine()
     private var isTapInstalled = false
     private var smoothedFrequency: Double?
     private var notificationTokens: [NSObjectProtocol] = []
+    private var lastPublishedAt = 0.0
+    private var missedFrames = 0
+    private var minimumInputLevel = PitchInputSensitivity.maximum.minimumInputLevel
 
     init(sessionCoordinator: AudioSessionCoordinating = AudioSessionCoordinator.shared) {
         self.sessionCoordinator = sessionCoordinator
@@ -45,6 +63,10 @@ final class PitchDetector: ObservableObject {
         authorization = AVAudioApplication.shared.recordPermission
     }
 
+    func setInputSensitivity(_ sensitivity: PitchInputSensitivity) {
+        minimumInputLevel = sensitivity.minimumInputLevel
+    }
+
     func start() {
         refreshAuthorization()
         guard authorization == .granted else {
@@ -57,40 +79,44 @@ final class PitchDetector: ObservableObject {
         }
 
         transition(.begin)
-        do {
-            try sessionCoordinator.activateForRecording()
-        } catch {
-            transition(.failed(.audioSessionUnavailable))
-            return
-        }
-
-        do {
-            installTapIfNeeded()
-            engine.prepare()
-            try engine.start()
-            transition(.started)
-        } catch {
-            engine.stop()
-            if isTapInstalled {
-                engine.inputNode.removeTap(onBus: 0)
-                isTapInstalled = false
+        lifecycleQueue.async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.sessionCoordinator.activateForRecording()
+                self.installTapIfNeeded()
+                self.engine.prepare()
+                try self.engine.start()
+                DispatchQueue.main.async { [weak self] in
+                    self?.transition(.started)
+                }
+            } catch is AudioEngineError {
+                self.stopEngineOnLifecycleQueue()
+                DispatchQueue.main.async { [weak self] in
+                    self?.transition(.failed(.audioSessionUnavailable))
+                }
+            } catch {
+                self.stopEngineOnLifecycleQueue()
+                DispatchQueue.main.async { [weak self] in
+                    self?.transition(.failed(.engineStartFailed))
+                }
             }
-            sessionCoordinator.deactivate()
-            transition(.failed(.engineStartFailed))
         }
     }
 
     func stop() {
-        engine.stop()
-        if isTapInstalled {
-            engine.inputNode.removeTap(onBus: 0)
-            isTapInstalled = false
+        lifecycleQueue.async { [weak self] in
+            guard let self else { return }
+            self.stopEngineOnLifecycleQueue()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.transition(.stopped)
+                self.frequency = nil
+                self.inputLevel = 0
+                self.smoothedFrequency = nil
+                self.missedFrames = 0
+                self.lastPublishedAt = 0
+            }
         }
-        sessionCoordinator.deactivate()
-        transition(.stopped)
-        frequency = nil
-        inputLevel = 0
-        smoothedFrequency = nil
     }
 
     private func observeAudioSession() {
@@ -110,12 +136,17 @@ final class PitchDetector: ObservableObject {
 
     private func markInterrupted() {
         guard isRunning else { return }
-        engine.stop()
-        frequency = nil
-        inputLevel = 0
-        smoothedFrequency = nil
-        sessionCoordinator.deactivate()
-        transition(.interrupted)
+        lifecycleQueue.async { [weak self] in
+            guard let self else { return }
+            self.stopEngineOnLifecycleQueue()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.frequency = nil
+                self.inputLevel = 0
+                self.smoothedFrequency = nil
+                self.transition(.interrupted)
+            }
+        }
     }
 
     private func transition(_ event: AudioEngineEvent) {
@@ -127,10 +158,13 @@ final class PitchDetector: ObservableObject {
         guard !isTapInstalled else { return }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1_536, format: format) { [weak self] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 768, format: format) { [weak self] buffer, _ in
             guard let samples = buffer.floatChannelData?[0] else { return }
-            let result = Self.estimatePitch(samples: samples, count: Int(buffer.frameLength), sampleRate: format.sampleRate)
+            let result = Self.estimatePitch(samples: samples, count: Int(buffer.frameLength), sampleRate: format.sampleRate, minimumInputLevel: self?.minimumInputLevel ?? .leastNonzeroMagnitude)
             let smoothed = self?.smoothed(result.frequency)
+            let now = ProcessInfo.processInfo.systemUptime
+            guard now - (self?.lastPublishedAt ?? 0) >= (1.0 / 60.0) else { return }
+            self?.lastPublishedAt = now
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.inputLevel = result.level
@@ -140,76 +174,96 @@ final class PitchDetector: ObservableObject {
         isTapInstalled = true
     }
 
-    private static func estimatePitch(samples: UnsafePointer<Float>, count: Int, sampleRate: Double) -> (frequency: Double?, level: Float) {
+    private func stopEngineOnLifecycleQueue() {
+        engine.stop()
+        if isTapInstalled {
+            engine.inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
+        sessionCoordinator.deactivate()
+    }
+
+    static func estimatePitch(samples: UnsafePointer<Float>, count: Int, sampleRate: Double, minimumInputLevel: Float = PitchInputSensitivity.maximum.minimumInputLevel) -> (frequency: Double?, level: Float) {
         guard count > 2 else { return (nil, 0) }
+        var mean: Float = 0
+        for index in 0..<count { mean += samples[index] }
+        mean /= Float(count)
+
         var energy: Float = 0
         for index in 0..<count {
-            let value = samples[index]
-            energy += value * value
+            let centered = samples[index] - mean
+            energy += centered * centered
         }
         let level = sqrt(energy / Float(count))
-        guard level > 0.012 else { return (nil, level) }
+        guard level > minimumInputLevel else { return (nil, level) }
 
         let minLag = max(2, Int(sampleRate / 1_100))
         let maxLag = min(Int(sampleRate / 55), count / 2)
         guard minLag < maxLag else { return (nil, level) }
-        func score(at lag: Int) -> Float {
-            var correlation: Float = 0
-            var firstEnergy: Float = 0
-            var secondEnergy: Float = 0
+
+        var difference = [Float](repeating: 0, count: maxLag + 1)
+        for lag in 1...maxLag {
+            var sum: Float = 0
             for index in 0..<(count - lag) {
-                let first = samples[index]
-                let second = samples[index + lag]
-                correlation += first * second
-                firstEnergy += first * first
-                secondEnergy += second * second
+                let delta = (samples[index] - mean) - (samples[index + lag] - mean)
+                sum += delta * delta
             }
-            return correlation / sqrt(max(firstEnergy * secondEnergy, .leastNonzeroMagnitude))
+            difference[lag] = sum
         }
 
-        var coarseBestLag = minLag
-        var coarseBestScore: Float = -.infinity
-        for lag in stride(from: minLag, through: maxLag, by: 4) {
-            let candidate = score(at: lag)
-            if candidate > coarseBestScore {
-                coarseBestScore = candidate
-                coarseBestLag = lag
-            }
+        var cumulativeDifference = [Float](repeating: 1, count: maxLag + 1)
+        var runningSum: Float = 0
+        for lag in 1...maxLag {
+            runningSum += difference[lag]
+            cumulativeDifference[lag] = difference[lag] * Float(lag) / max(runningSum, .leastNonzeroMagnitude)
         }
 
-        let lowerBound = max(minLag, coarseBestLag - 4)
-        let upperBound = min(maxLag, coarseBestLag + 4)
-        var bestLag = lowerBound
-        var bestScore: Float = -.infinity
-        var localScores: [Int: Float] = [:]
-        for lag in lowerBound...upperBound {
-            let candidate = score(at: lag)
-            localScores[lag] = candidate
-            if candidate > bestScore {
-                bestScore = candidate
-                bestLag = lag
+        let threshold: Float = 0.18
+        var bestLag: Int?
+        for lag in minLag..<maxLag where cumulativeDifference[lag] < threshold {
+            var localMinimum = lag
+            while localMinimum + 1 < maxLag,
+                  cumulativeDifference[localMinimum + 1] < cumulativeDifference[localMinimum] {
+                localMinimum += 1
             }
+            bestLag = localMinimum
+            break
         }
-        guard bestScore > 0.62 else { return (nil, level) }
-        var fractionalLag = Double(bestLag)
-        if let leftScore = localScores[bestLag - 1], let centerScore = localScores[bestLag], let rightScore = localScores[bestLag + 1] {
-            let left = Double(leftScore)
-            let center = Double(centerScore)
-            let right = Double(rightScore)
+        if bestLag == nil {
+            bestLag = (minLag...maxLag).min { cumulativeDifference[$0] < cumulativeDifference[$1] }
+        }
+
+        guard let lag = bestLag, cumulativeDifference[lag] < 0.35 else { return (nil, level) }
+        var fractionalLag = Double(lag)
+        if lag > minLag, lag < maxLag {
+            let left = Double(cumulativeDifference[lag - 1])
+            let center = Double(cumulativeDifference[lag])
+            let right = Double(cumulativeDifference[lag + 1])
             let denominator = left - 2 * center + right
             if abs(denominator) > .leastNonzeroMagnitude {
                 fractionalLag += 0.5 * (left - right) / denominator
             }
         }
+        guard fractionalLag > 0 else { return (nil, level) }
         return (sampleRate / fractionalLag, level)
     }
 
     private func smoothed(_ estimate: Double?) -> Double? {
         guard let estimate else {
+            missedFrames += 1
+            if missedFrames <= 2 { return smoothedFrequency }
             smoothedFrequency = nil
             return nil
         }
-        let result = smoothedFrequency.map { $0 + (estimate - $0) * 0.7 } ?? estimate
+        missedFrames = 0
+        if let previous = smoothedFrequency {
+            let ratio = estimate / previous
+            guard (0.75...1.33).contains(ratio) else { return previous }
+            let result = previous + (estimate - previous) * 0.7
+            smoothedFrequency = result
+            return result
+        }
+        let result = estimate
         smoothedFrequency = result
         return result
     }

@@ -1,54 +1,68 @@
 import SwiftUI
-import Foundation
 
-// 自绘组件：原生控件没有 cents 仪表。
-struct PrecisionTunerGauge: View {
-    let cents: Double?
+struct TunerNoteChange: Equatable, Identifiable {
+    let index: Int
+    let name: String
 
-    private var clampedCents: Double { min(max(cents ?? 0, -50), 50) }
-    private var statusColor: Color {
-        guard let cents else { return .secondary }
-        return abs(cents) <= 5 ? .green : (abs(cents) <= 20 ? .orange : .red)
-    }
+    var id: Int { index }
+}
+
+struct TunerHistoryGraph: View {
+    let values: [Double]
+    var noteChanges: [TunerNoteChange] = []
+
+    private let labels = [25, 20, 15, 10, 5, 0, -5, -10, -15, -20, -25]
 
     var body: some View {
-        Canvas { context, size in
-            let center = CGPoint(x: size.width / 2, y: size.height * 0.91)
-            let radius = min(size.width * 0.45, size.height * 0.86)
+        GeometryReader { proxy in
+            let curveInset = CGFloat(30)
+            let graphWidth = max(proxy.size.width - curveInset, 1)
+            let graphHeight = proxy.size.height
 
-            for tick in stride(from: -50, through: 50, by: 1) {
-                let angle = Angle.degrees(270 + Double(tick) * 1.16)
-                let isMajor = tick.isMultiple(of: 10)
-                let isTarget = (-10...10).contains(tick)
-                let outer = CGPoint(x: center.x + cos(angle.radians) * radius, y: center.y + sin(angle.radians) * radius)
-                let tickLength: CGFloat = isMajor ? 20 : 11
-                let inner = CGPoint(x: center.x + cos(angle.radians) * (radius - tickLength), y: center.y + sin(angle.radians) * (radius - tickLength))
-                var mark = Path()
-                mark.move(to: outer)
-                mark.addLine(to: inner)
-                let color: Color = isTarget ? .green : .blue.opacity(0.8)
-                context.stroke(mark, with: .color(color), lineWidth: isMajor ? 3 : 1.5)
-                if isMajor {
-                    let labelPoint = CGPoint(x: center.x + cos(angle.radians) * (radius + 18), y: center.y + sin(angle.radians) * (radius + 18))
-                    context.draw(Text("\(tick)").font(.caption2).foregroundStyle(color), at: labelPoint)
+            Canvas { context, size in
+                let zeroY = size.height / 2
+                var zeroPath = Path()
+                zeroPath.move(to: CGPoint(x: curveInset, y: zeroY))
+                zeroPath.addLine(to: CGPoint(x: size.width, y: zeroY))
+                context.stroke(zeroPath, with: .color(ToneTunerDesign.secondaryLabel), lineWidth: 1)
+
+                guard values.count > 1 else { return }
+                var history = Path()
+                for (index, value) in values.enumerated() {
+                    let x = curveInset + graphWidth * CGFloat(index) / CGFloat(values.count - 1)
+                    let normalized = min(max(value, -25), 25) / 25
+                    let y = zeroY - CGFloat(normalized) * (size.height / 2 - 8)
+                    if index == 0 || noteChanges.contains(where: { $0.index == index }) {
+                        history.move(to: CGPoint(x: x, y: y))
+                    } else {
+                        history.addLine(to: CGPoint(x: x, y: y))
+                    }
+                }
+                context.stroke(history, with: .color(.white), style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
+            }
+            .overlay(alignment: .topLeading) {
+                ForEach(noteChanges) { change in
+                    let x = curveInset + graphWidth * CGFloat(min(max(change.index, 0), max(values.count - 1, 0))) / CGFloat(max(values.count - 1, 1))
+                    Text(change.name)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                        .position(x: x, y: 8)
                 }
             }
-
-            let angle = Angle.degrees(270 + clampedCents * 1.2)
-            let point = CGPoint(x: center.x + cos(angle.radians) * (radius - 36), y: center.y + sin(angle.radians) * (radius - 36))
-            var needle = Path()
-            needle.move(to: center)
-            needle.addLine(to: point)
-            context.stroke(needle, with: .color(cents == nil ? .secondary : .red), lineWidth: 5)
-            let targetColor = cents.map { abs($0) <= 5 ? Color.green : statusColor } ?? .secondary
-            context.fill(Path(ellipseIn: CGRect(x: center.x - 22, y: center.y - 22, width: 44, height: 44)), with: .color(targetColor.opacity(0.9)))
-            context.draw(Text(cents.map { String(format: "%+.0f", $0) } ?? "--").font(.title2.monospacedDigit()).foregroundStyle(.black), at: center)
+            .overlay(alignment: .leading) {
+                VStack(spacing: 0) {
+                    ForEach(labels, id: \.self) { label in
+                        Text(label == 0 ? "" : String(format: "%+d", label))
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color(red: 138 / 255, green: 138 / 255, blue: 138 / 255))
+                            .frame(maxHeight: .infinity, alignment: .center)
+                    }
+                }
+                .frame(width: 30, height: graphHeight)
+            }
         }
-        .frame(height: 240)
-        .dynamicTypeSize(.medium)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("音高偏差")
-        .accessibilityValue(cents.map { String(format: "%+.0f 音分", $0) } ?? "等待声音")
-        .animation(.linear(duration: 0.035), value: cents)
+        .accessibilityLabel("音高偏差轨迹")
+        .accessibilityValue(values.last.map { String(format: "%+.0f 音分", $0) } ?? "等待声音")
     }
 }

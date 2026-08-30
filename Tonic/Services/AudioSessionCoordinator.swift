@@ -76,8 +76,13 @@ final class AudioSessionCoordinator: AudioSessionCoordinating {
 
     private init() { }
 
+    var currentSampleRate: Double { session.sampleRate }
+    var currentIOBufferDuration: TimeInterval { session.ioBufferDuration }
+
     func activateForRecording() throws {
         try session.setCategory(.record, mode: .measurement, options: [.allowBluetoothHFP])
+        try session.setPreferredSampleRate(44_100)
+        try session.setPreferredIOBufferDuration(0.005)
         try session.setActive(true)
     }
 

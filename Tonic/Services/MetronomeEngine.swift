@@ -2,11 +2,36 @@ import AVFoundation
 import Combine
 import Foundation
 
+struct TapTempoAverager {
+    private static let timeout: TimeInterval = 2
+    private static let maximumIntervals = 4
+    private var timestamps: [TimeInterval] = []
+
+    mutating func registerTap(at timestamp: TimeInterval) -> Int? {
+        if let previous = timestamps.last, timestamp - previous >= Self.timeout {
+            timestamps = [timestamp]
+            return nil
+        }
+
+        timestamps.append(timestamp)
+        if timestamps.count > Self.maximumIntervals + 1 {
+            timestamps.removeFirst(timestamps.count - (Self.maximumIntervals + 1))
+        }
+
+        guard timestamps.count > 1 else { return nil }
+        let intervals = zip(timestamps, timestamps.dropFirst()).map { current, next in next - current }
+        guard intervals.allSatisfy({ $0 > 0 }) else { return nil }
+
+        let averageInterval = intervals.reduce(0, +) / Double(intervals.count)
+        let tempo = Int((60 / averageInterval).rounded())
+        return (40...240).contains(tempo) ? tempo : nil
+    }
+}
+
 final class MetronomeEngine: ObservableObject {
     @Published private(set) var state: AudioEngineState = .idle
     @Published private(set) var currentBeat = 0
     @Published private(set) var activeBeatsPerBar = 4
-    @Published private(set) var hasPendingConfiguration = false
 
     var isPlaying: Bool { state == .running }
 
@@ -18,7 +43,6 @@ final class MetronomeEngine: ObservableObject {
     private let regularBuffer: AVAudioPCMBuffer
     private var timer: Timer?
     private var activeTempo = 96
-    private var pendingConfiguration: (tempo: Int, beatsPerBar: Int)?
     private var notificationTokens: [NSObjectProtocol] = []
 
     init(sessionCoordinator: AudioSessionCoordinating = AudioSessionCoordinator.shared) {
@@ -64,8 +88,11 @@ final class MetronomeEngine: ObservableObject {
 
     func update(tempo: Int, beatsPerBar: Int) {
         guard isPlaying else { return }
-        pendingConfiguration = (tempo, beatsPerBar)
-        hasPendingConfiguration = true
+        activeTempo = tempo
+        activeBeatsPerBar = beatsPerBar
+        currentBeat %= beatsPerBar
+        timer?.invalidate()
+        scheduleNextBeat()
     }
 
     func stop() {
@@ -76,8 +103,6 @@ final class MetronomeEngine: ObservableObject {
         sessionCoordinator.deactivate()
         transition(.stopped)
         currentBeat = 0
-        pendingConfiguration = nil
-        hasPendingConfiguration = false
     }
 
     private func scheduleNextBeat() {
@@ -85,12 +110,6 @@ final class MetronomeEngine: ObservableObject {
             guard let self, self.isPlaying else { return }
             if currentBeat == activeBeatsPerBar - 1 {
                 currentBeat = 0
-                if let pendingConfiguration {
-                    activeTempo = pendingConfiguration.tempo
-                    activeBeatsPerBar = pendingConfiguration.beatsPerBar
-                    self.pendingConfiguration = nil
-                    hasPendingConfiguration = false
-                }
                 playClick(accented: true)
             } else {
                 currentBeat += 1
@@ -127,8 +146,6 @@ final class MetronomeEngine: ObservableObject {
         player.stop()
         engine.stop()
         currentBeat = 0
-        pendingConfiguration = nil
-        hasPendingConfiguration = false
         sessionCoordinator.deactivate()
         transition(.interrupted)
     }
