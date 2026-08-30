@@ -19,6 +19,10 @@ struct ContentView: View {
     @State private var showsSettingsSheet = false
     @AppStorage("appearanceMode") private var appearanceMode = "dark"
 
+    init(initialPage: Int = 0) {
+        _selectedPage = State(initialValue: initialPage)
+    }
+
     private var reading: PitchReading? {
         detector.frequency.map { PitchReading(frequency: $0, referencePitch: referencePitch) }
     }

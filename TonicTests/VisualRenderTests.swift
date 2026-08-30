@@ -7,7 +7,7 @@ import UIKit
 final class VisualRenderTests: XCTestCase {
     func testRenderRepresentativeTunerStates() throws {
         try render(
-            TunerView()
+            ContentView(initialPage: 0)
                 .environment(\.locale, Locale(identifier: "zh-Hans"))
                 .environment(\.colorScheme, .light)
                 .environment(\.dynamicTypeSize, .large),
@@ -15,7 +15,7 @@ final class VisualRenderTests: XCTestCase {
         )
 
         try render(
-            TunerView()
+            ContentView(initialPage: 0)
                 .environment(\.locale, Locale(identifier: "zh-Hans"))
                 .environment(\.dynamicTypeSize, .accessibility5),
             name: "tuner-accessibility-dark",
@@ -26,7 +26,7 @@ final class VisualRenderTests: XCTestCase {
         )
 
         try render(
-            TunerView()
+            ContentView(initialPage: 0)
                 .environment(\.locale, Locale(identifier: "en"))
                 .environment(\.colorScheme, .light)
                 .environment(\.dynamicTypeSize, .accessibility5),
@@ -37,7 +37,7 @@ final class VisualRenderTests: XCTestCase {
 
     func testRenderRepresentativeMetronomeStates() throws {
         try render(
-            MetronomeView()
+            ContentView(initialPage: 1)
                 .environment(\.locale, Locale(identifier: "en"))
                 .environment(\.colorScheme, .light)
                 .environment(\.dynamicTypeSize, .large),
@@ -45,7 +45,7 @@ final class VisualRenderTests: XCTestCase {
         )
 
         try render(
-            MetronomeView()
+            ContentView(initialPage: 1)
                 .environment(\.locale, Locale(identifier: "zh-Hans"))
                 .environment(\.dynamicTypeSize, .accessibility5),
             name: "metronome-accessibility-dark",
@@ -56,11 +56,11 @@ final class VisualRenderTests: XCTestCase {
         )
 
         try render(
-            MetronomeView(reduceMotionOverride: true)
+            ContentView(initialPage: 1)
                 .environment(\.locale, Locale(identifier: "en"))
                 .environment(\.colorScheme, .light)
                 .environment(\.dynamicTypeSize, .accessibility5),
-            name: "metronome-landscape-english-reduce-motion",
+            name: "metronome-landscape-english",
             size: CGSize(width: 874, height: 402)
         )
     }
