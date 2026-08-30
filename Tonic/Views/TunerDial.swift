@@ -11,7 +11,7 @@ struct TunerHistoryGraph: View {
     let values: [Double]
     var noteChanges: [TunerNoteChange] = []
 
-    private let labels = [25, 20, 15, 10, 5, 0, -5, -10, -15, -20, -25]
+    private let labels = [40, 30, 20, 10, 5, 0, -5, -10, -20, -30, -40]
     private let annotationBandHeight = CGFloat(28)
     private let graphPadding = CGFloat(8)
 
@@ -92,7 +92,7 @@ struct TunerHistoryGraph: View {
         curveHeight: CGFloat
     ) -> CGPoint {
         let x = curveInset + graphWidth * CGFloat(index) / CGFloat(max(count - 1, 1))
-        let normalized = min(max(value, -25), 25) / 25
+        let normalized = min(max(value, -40), 40) / 40
         let y = zeroY - CGFloat(normalized) * curveHeight / 2
         return CGPoint(x: x, y: y)
     }
