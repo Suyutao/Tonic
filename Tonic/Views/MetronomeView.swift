@@ -3,6 +3,7 @@ import SwiftUI
 struct MetronomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @StateObject private var metronome = MetronomeEngine()
     @AppStorage("metronomeTempo") private var tempo = 96.0
     @AppStorage("metronomeBeatsPerBar") private var beatsPerBar = 4
@@ -12,6 +13,7 @@ struct MetronomeView: View {
 
     init(reduceMotionOverride: Bool? = nil) { self.reduceMotionOverride = reduceMotionOverride }
     private var shouldReduceMotion: Bool { reduceMotionOverride ?? reduceMotion }
+    private var usesCompactControls: Bool { dynamicTypeSize.isAccessibilitySize }
     private var engineTempo: Int { Int(tempo.rounded()) }
     private var tempoMarking: LocalizedStringKey {
         switch engineTempo {
@@ -81,7 +83,7 @@ struct MetronomeView: View {
                 }
             }
             .frame(height: 33)
-            Spacer(minLength: 116)
+            Spacer(minLength: usesCompactControls ? 8 : 116)
             VStack(spacing: 0) {
                 Text(tempoMarking).font(.system(size: 22)).foregroundStyle(ToneTunerDesign.secondaryLabel)
                 Text("\(Int(tempo.rounded()))")
@@ -92,7 +94,7 @@ struct MetronomeView: View {
                     .minimumScaleFactor(0.5)
             }
             .frame(height: 188)
-            Spacer(minLength: 24)
+            Spacer(minLength: usesCompactControls ? 12 : 24)
             controls
                 .padding(.bottom, 11)
         }
@@ -112,7 +114,7 @@ struct MetronomeView: View {
             let signatureWidth = lowerRowWidth * 213 / 362
             let tapWidth = lowerRowWidth - signatureWidth
 
-            VStack(spacing: 10) {
+            VStack(spacing: usesCompactControls ? 18 : 10) {
                 HStack(spacing: 12) {
                     Image(systemName: "tortoise.fill")
                         .font(.system(size: 20, weight: .semibold))
@@ -129,13 +131,21 @@ struct MetronomeView: View {
                 .padding(.horizontal, horizontalInset)
                 .frame(width: controlWidth, height: 54)
                 .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
-                HStack(alignment: .top, spacing: 10) {
-                    signatureButton.frame(width: signatureWidth, height: 87)
-                    tapButton.frame(width: tapWidth, height: 87)
+                if usesCompactControls {
+                    VStack(spacing: 18) {
+                        signatureButton.frame(width: controlWidth, height: 87)
+                        tapButton.frame(width: controlWidth, height: 87)
+                    }
+                    .frame(width: controlWidth, alignment: .top)
+                } else {
+                    HStack(alignment: .top, spacing: 10) {
+                        signatureButton.frame(width: signatureWidth, height: 87)
+                        tapButton.frame(width: tapWidth, height: 87)
+                    }
                 }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 151, maxHeight: 151)
+        .frame(maxWidth: .infinity, minHeight: usesCompactControls ? 264 : 151, maxHeight: usesCompactControls ? 264 : 151)
     }
 
     private var signatureButton: some View {
@@ -209,6 +219,7 @@ struct MetronomeView: View {
 
 struct MetronomePage: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var metronome: MetronomeEngine
     @Binding var tempo: Double
     @Binding var beatsPerBar: Int
@@ -216,6 +227,7 @@ struct MetronomePage: View {
     @State private var hasRegisteredTapTouch = false
 
     private var engineTempo: Int { Int(tempo.rounded()) }
+    private var usesCompactControls: Bool { dynamicTypeSize.isAccessibilitySize }
     private var tempoMarking: LocalizedStringKey {
         switch engineTempo {
         case ..<80: "广板"
@@ -246,7 +258,7 @@ struct MetronomePage: View {
                 }
             }
             .frame(height: 33)
-            Spacer(minLength: 116)
+            Spacer(minLength: usesCompactControls ? 8 : 116)
             VStack(spacing: 0) {
                 Text(tempoMarking).font(.title2).foregroundStyle(ToneTunerDesign.secondaryLabel)
                 Text("\(engineTempo)")
@@ -258,7 +270,7 @@ struct MetronomePage: View {
                     .minimumScaleFactor(0.5)
             }
             .frame(height: 188)
-            Spacer(minLength: 24)
+            Spacer(minLength: usesCompactControls ? 12 : 24)
             controls.padding(.bottom, 11)
         }
         .padding(.horizontal, 11)
@@ -266,8 +278,8 @@ struct MetronomePage: View {
         .toneTunerSurface(fill: ToneTunerDesign.backgroundElevated, stroke: ToneTunerDesign.fillPrimary, cornerRadius: 36)
     }
 
-    private var controls: some View {
-        VStack(spacing: 10) {
+    @ViewBuilder private var controls: some View {
+        VStack(spacing: usesCompactControls ? 18 : 10) {
             HStack(spacing: 12) {
                 Image(systemName: "tortoise.fill")
                     .font(.system(size: 20, weight: .semibold))
@@ -287,16 +299,24 @@ struct MetronomePage: View {
             .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
 
             GeometryReader { proxy in
-                let available = max(0, proxy.size.width - 10)
-                let signatureWidth = available * 213 / 352
-                let tapWidth = available - signatureWidth
-                HStack(alignment: .top, spacing: 10) {
-                    signatureButton(width: signatureWidth)
-                    tapButton(width: tapWidth)
+                if usesCompactControls {
+                    VStack(spacing: 18) {
+                        signatureButton(width: proxy.size.width)
+                        tapButton(width: proxy.size.width)
+                    }
+                    .frame(width: proxy.size.width, alignment: .top)
+                } else {
+                    let available = max(0, proxy.size.width - 10)
+                    let signatureWidth = available * 213 / 352
+                    let tapWidth = available - signatureWidth
+                    HStack(alignment: .top, spacing: 10) {
+                        signatureButton(width: signatureWidth)
+                        tapButton(width: tapWidth)
+                    }
+                    .frame(width: proxy.size.width, height: 87)
                 }
-                .frame(width: proxy.size.width, height: 87)
             }
-            .frame(height: 87)
+            .frame(height: usesCompactControls ? 192 : 87)
         }
     }
 

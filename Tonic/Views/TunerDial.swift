@@ -11,24 +11,44 @@ struct TunerHistoryGraph: View {
     let values: [Double]
     var noteChanges: [TunerNoteChange] = []
 
-    private let labels = [40, 30, 20, 10, 5, 0, -5, -10, -20, -30, -40]
+    private let labels = [40, 30, 20, 10, 0, -10, -20, -30, -40]
     private let annotationBandHeight = CGFloat(28)
-    private let graphPadding = CGFloat(8)
 
     var body: some View {
-        GeometryReader { proxy in
-            let curveInset = CGFloat(30)
-            let graphWidth = max(proxy.size.width - curveInset, 1)
-            let graphHeight = proxy.size.height
-
+        GeometryReader { _ in
             Canvas(opaque: false, colorMode: .linear, rendersAsynchronously: true) { context, size in
-                let curveTop = annotationBandHeight + graphPadding
-                let curveBottom = max(curveTop, size.height - graphPadding)
+                let axisLabel = context.resolve(
+                    Text("+40")
+                        .font(.system(size: 11))
+                        .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                )
+                let axisLabelSize = axisLabel.measure(in: size)
+                let curveInset = axisLabelSize.width + 4
+                let graphWidth = max(size.width - curveInset, 1)
+                let annotationHeight = noteChanges.isEmpty ? 0 : annotationBandHeight
+                let curveTop = annotationHeight + axisLabelSize.height / 2
+                let curveBottom = max(curveTop, size.height - axisLabelSize.height / 2)
                 let zeroY = (curveTop + curveBottom) / 2
                 var zeroPath = Path()
                 zeroPath.move(to: CGPoint(x: curveInset, y: zeroY))
                 zeroPath.addLine(to: CGPoint(x: size.width, y: zeroY))
                 context.stroke(zeroPath, with: .color(ToneTunerDesign.secondaryLabel), lineWidth: 1)
+
+                for labelValue in labels {
+                    let label = context.resolve(
+                        Text(String(format: "%+d", labelValue))
+                            .font(.system(size: 11))
+                            .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                    )
+                    context.draw(
+                        label,
+                        at: CGPoint(
+                            x: axisLabelSize.width / 2,
+                            y: graphY(for: Double(labelValue), zeroY: zeroY, curveHeight: curveBottom - curveTop)
+                        ),
+                        anchor: .center
+                    )
+                }
 
                 guard values.count > 1 else { return }
                 let points = values.enumerated().map { index, value in
@@ -65,17 +85,6 @@ struct TunerHistoryGraph: View {
                     graphWidth: graphWidth
                 )
             }
-            .overlay(alignment: .leading) {
-                VStack(spacing: 0) {
-                    ForEach(labels, id: \.self) { label in
-                        Text(label == 0 ? "" : String(format: "%+d", label))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color(red: 138 / 255, green: 138 / 255, blue: 138 / 255))
-                            .frame(maxHeight: .infinity, alignment: .center)
-                    }
-                }
-                .frame(width: 30, height: graphHeight)
-            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("音高偏差轨迹")
@@ -92,9 +101,13 @@ struct TunerHistoryGraph: View {
         curveHeight: CGFloat
     ) -> CGPoint {
         let x = curveInset + graphWidth * CGFloat(index) / CGFloat(max(count - 1, 1))
-        let normalized = min(max(value, -40), 40) / 40
-        let y = zeroY - CGFloat(normalized) * curveHeight / 2
+        let y = graphY(for: value, zeroY: zeroY, curveHeight: curveHeight)
         return CGPoint(x: x, y: y)
+    }
+
+    private func graphY(for value: Double, zeroY: CGFloat, curveHeight: CGFloat) -> CGFloat {
+        let normalized = min(max(value, -40), 40) / 40
+        return zeroY - CGFloat(normalized) * curveHeight / 2
     }
 
     private func smoothPath(through points: [CGPoint]) -> Path {
@@ -141,7 +154,7 @@ struct TunerHistoryGraph: View {
             let leading = x - labelSize.width / 2
 
             guard let row = rowEnd.indices.first(where: { leading >= rowEnd[$0] + 4 }) else { continue }
-            context.draw(label, at: CGPoint(x: x, y: 2 + CGFloat(row) * 13), anchor: .top)
+            context.draw(label, at: CGPoint(x: x, y: CGFloat(row) * 13), anchor: .top)
             rowEnd[row] = x + labelSize.width / 2
         }
     }

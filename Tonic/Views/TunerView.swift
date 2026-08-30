@@ -64,7 +64,7 @@ struct TunerView: View {
                 Text(reading.map { String(format: "%.0f Hz", $0.frequency) } ?? "-- Hz")
                     .font(.system(size: 22))
                     .foregroundStyle(ToneTunerDesign.secondaryLabel)
-                Text(reading?.noteName(style: noteNamingPreference, accidentals: accidentalPreference) ?? "B")
+                Text(reading?.noteName(style: noteNamingPreference, accidentals: accidentalPreference) ?? "--")
                     .font(.system(size: 128, weight: .bold, design: .rounded))
                     .foregroundStyle(ToneTunerDesign.primaryLabel)
                     .shadow(color: ToneTunerDesign.primaryLabel.opacity(0.28), radius: 6, y: 4)
@@ -74,6 +74,7 @@ struct TunerView: View {
                 Rectangle().fill(Color(red: 138 / 255, green: 138 / 255, blue: 138 / 255)).frame(width: 229, height: 1)
                 Text(reading.map { String(format: "%+.0f¢", $0.cents) } ?? "0¢")
                     .font(.system(size: 22)).foregroundStyle(ToneTunerDesign.secondaryLabel)
+                    .offset(y: -6)
             }
             .padding(10).frame(maxWidth: .infinity).frame(height: 218)
             Spacer(minLength: 24)
@@ -130,7 +131,7 @@ struct TunerView: View {
     }
 
     private func toggleTuning() {
-        if detector.isRunning { detector.stop(); history.removeAll() }
+        if detector.isRunning { detector.stop() }
         else if detector.authorization == .denied { showsSettingsAlert = true }
         else if detector.authorization == .undetermined { detector.requestAndStart() }
         else { detector.start() }
@@ -257,7 +258,7 @@ struct TunerPage: View {
                 Text(reading.map { String(format: "%.0f Hz", $0.frequency) } ?? "-- Hz")
                     .font(.title2)
                     .foregroundStyle(ToneTunerDesign.secondaryLabel)
-                Text(reading?.noteName(style: noteNamingStyle, accidentals: accidentalStyle) ?? "B")
+                Text(reading?.noteName(style: noteNamingStyle, accidentals: accidentalStyle) ?? "--")
                     .font(.system(size: 128, weight: .bold, design: .rounded))
                     .foregroundStyle(ToneTunerDesign.primaryLabel)
                     .shadow(color: ToneTunerDesign.primaryLabel.opacity(0.28), radius: 6, y: 4)
@@ -270,6 +271,7 @@ struct TunerPage: View {
                 Text(reading.map { String(format: "%+.0f¢", $0.cents) } ?? "0¢")
                     .font(.title2)
                     .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                    .offset(y: -6)
             }
             .padding(10)
             .frame(maxWidth: .infinity)

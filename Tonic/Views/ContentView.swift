@@ -121,8 +121,6 @@ struct ContentView: View {
         if selectedPage == 0 {
             if detector.isRunning {
                 detector.stop()
-                tunerHistory.removeAll()
-                tunerNoteChanges.removeAll()
             } else {
                 metronome.stop()
                 if detector.authorization == .denied {
