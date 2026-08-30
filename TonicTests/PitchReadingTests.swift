@@ -2,6 +2,13 @@ import XCTest
 @testable import Tonic
 
 final class PitchReadingTests: XCTestCase {
+    func testNoteChangeShiftsWithDiscardedHistory() {
+        let change = TunerNoteChange(index: 5, name: "A4")
+
+        XCTAssertEqual(change.shifted(leftBy: 2), TunerNoteChange(index: 3, name: "A4"))
+        XCTAssertNil(change.shifted(leftBy: 6))
+    }
+
     func testTapTempoUsesAverageOfRecentIntervals() {
         var tapTempo = TapTempoAverager()
         XCTAssertNil(tapTempo.registerTap(at: 0))

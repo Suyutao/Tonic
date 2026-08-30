@@ -5,6 +5,11 @@ struct TunerNoteChange: Equatable, Identifiable {
     let name: String
 
     var id: Int { index }
+
+    func shifted(leftBy count: Int) -> TunerNoteChange? {
+        guard index >= count else { return nil }
+        return TunerNoteChange(index: index - count, name: name)
+    }
 }
 
 struct TunerHistoryGraph: View {
@@ -12,8 +17,6 @@ struct TunerHistoryGraph: View {
     var noteChanges: [TunerNoteChange] = []
 
     private let labels = [40, 30, 20, 10, 0, -10, -20, -30, -40]
-    private let annotationBandHeight = CGFloat(28)
-
     var body: some View {
         GeometryReader { _ in
             Canvas(opaque: false, colorMode: .linear, rendersAsynchronously: true) { context, size in
@@ -25,8 +28,7 @@ struct TunerHistoryGraph: View {
                 let axisLabelSize = axisLabel.measure(in: size)
                 let curveInset = axisLabelSize.width + 4
                 let graphWidth = max(size.width - curveInset, 1)
-                let annotationHeight = noteChanges.isEmpty ? 0 : annotationBandHeight
-                let curveTop = annotationHeight + axisLabelSize.height / 2
+                let curveTop = axisLabelSize.height / 2
                 let curveBottom = max(curveTop, size.height - axisLabelSize.height / 2)
                 let zeroY = (curveTop + curveBottom) / 2
                 var zeroPath = Path()
@@ -81,8 +83,7 @@ struct TunerHistoryGraph: View {
                     noteChanges,
                     context: &context,
                     size: size,
-                    curveInset: curveInset,
-                    graphWidth: graphWidth
+                    points: points
                 )
             }
         }
@@ -138,24 +139,19 @@ struct TunerHistoryGraph: View {
         _ changes: [TunerNoteChange],
         context: inout GraphicsContext,
         size: CGSize,
-        curveInset: CGFloat,
-        graphWidth: CGFloat
+        points: [CGPoint]
     ) {
-        var rowEnd = [curveInset, curveInset]
-        for change in changes.sorted(by: { $0.index < $1.index }) where change.index >= 0 && change.index < values.count {
+        for change in changes where change.index >= 0 && change.index < points.count {
             let label = context.resolve(
                 Text(change.name)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(ToneTunerDesign.secondaryLabel)
             )
             let labelSize = label.measure(in: size)
-            let plottedX = curveInset + graphWidth * CGFloat(change.index) / CGFloat(max(values.count - 1, 1))
-            let x = min(max(plottedX, curveInset + labelSize.width / 2), size.width - labelSize.width / 2)
-            let leading = x - labelSize.width / 2
-
-            guard let row = rowEnd.indices.first(where: { leading >= rowEnd[$0] + 4 }) else { continue }
-            context.draw(label, at: CGPoint(x: x, y: CGFloat(row) * 13), anchor: .top)
-            rowEnd[row] = x + labelSize.width / 2
+            let point = points[change.index]
+            let x = min(max(point.x + labelSize.width / 2 + 4, labelSize.width / 2), size.width - labelSize.width / 2)
+            let y = min(max(point.y - labelSize.height / 2 - 6, labelSize.height / 2), size.height - labelSize.height / 2)
+            context.draw(label, at: CGPoint(x: x, y: y), anchor: .center)
         }
     }
 }

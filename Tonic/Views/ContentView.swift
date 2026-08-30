@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var selectedPage = 0
     @State private var tunerHistory: [Double] = []
     @State private var tunerNoteChanges: [TunerNoteChange] = []
+    @State private var lastDetectedFrequency: Double?
     @State private var tapTempo = TapTempoAverager()
     @State private var showsSettingsAlert = false
     @State private var showsSettingsSheet = false
@@ -27,12 +28,18 @@ struct ContentView: View {
         detector.frequency.map { PitchReading(frequency: $0, referencePitch: referencePitch) }
     }
 
+    private var displayedReading: PitchReading? {
+        (detector.frequency ?? lastDetectedFrequency).map {
+            PitchReading(frequency: $0, referencePitch: referencePitch)
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            GeometryReader { proxy in
+            GeometryReader { _ in
                 VStack(spacing: 0) {
                     TabView(selection: $selectedPage) {
-                        TunerPage(detector: detector, reading: reading, history: tunerHistory, noteChanges: tunerNoteChanges, noteNamingStyle: noteNamingPreference, accidentalStyle: accidentalPreference).tag(0)
+                        TunerPage(detector: detector, reading: displayedReading, history: tunerHistory, noteChanges: tunerNoteChanges, noteNamingStyle: noteNamingPreference, accidentalStyle: accidentalPreference).tag(0)
                         MetronomePage(metronome: metronome, tempo: $tempo, beatsPerBar: $beatsPerBar, tap: registerTap).tag(1)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
@@ -49,7 +56,7 @@ struct ContentView: View {
                 .frame(height: 73)
                 .padding(.horizontal, 20)
                     .padding(.top, 10)
-                    .padding(.bottom, max(20, proxy.safeAreaInsets.bottom))
+                    .padding(.bottom, 20)
                 }
                 .background(ToneTunerDesign.background)
                 .ignoresSafeArea(.container, edges: .bottom)
@@ -68,10 +75,17 @@ struct ContentView: View {
         .preferredColorScheme(appearanceMode == "dark" ? .dark : nil)
         .tint(ToneTunerDesign.tint)
         .onAppear { detector.setInputSensitivity(pitchInputSensitivityPreference) }
+        .onChange(of: detector.frequency) { _, frequency in
+            guard let frequency else { return }
+            lastDetectedFrequency = frequency
+        }
         .onChange(of: reading?.cents) { _, cents in
             guard let cents else { return }
             tunerHistory.append(cents)
-            if tunerHistory.count > 120 { tunerHistory.removeFirst(tunerHistory.count - 120) }
+            let discardedCount = max(0, tunerHistory.count - 120)
+            guard discardedCount > 0 else { return }
+            tunerHistory.removeFirst(discardedCount)
+            tunerNoteChanges = tunerNoteChanges.compactMap { $0.shifted(leftBy: discardedCount) }
         }
         .onChange(of: reading?.noteName(style: noteNamingPreference, accidentals: accidentalPreference)) { oldName, newName in
             guard let newName, newName != oldName, !tunerHistory.isEmpty else { return }
