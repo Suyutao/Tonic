@@ -66,10 +66,10 @@ struct MetronomePage: View {
         if usesCompactControls {
             VStack(spacing: 11) {
                 compactTempoControl
-                signatureButton(height: 108)
-                tapButton(height: 87)
+                signatureButton(height: 112)
+                tapButton(height: 112)
             }
-            .frame(maxWidth: .infinity, minHeight: 271, maxHeight: 271, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 300, maxHeight: 300, alignment: .top)
         } else {
             VStack(spacing: 10) {
             HStack(spacing: 12) {
@@ -126,7 +126,11 @@ struct MetronomePage: View {
 
     private func signatureButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("拍号").font(.headline).foregroundStyle(ToneTunerDesign.primaryLabel)
+            Text("拍号")
+                .font(.headline)
+                .foregroundStyle(ToneTunerDesign.primaryLabel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Spacer()
             Picker("拍号", selection: $beatsPerBar) {
                 Text("2/4").tag(2); Text("3/4").tag(3); Text("4/4").tag(4); Text("6/8").tag(6)
@@ -134,6 +138,7 @@ struct MetronomePage: View {
             .tint(ToneTunerDesign.tint)
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .padding(.horizontal, 17)
         .padding(.top, 11)
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
@@ -142,19 +147,24 @@ struct MetronomePage: View {
 
     private func tapButton(height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("点击取拍").font(.headline).foregroundStyle(ToneTunerDesign.primaryLabel)
+            Text("轻按定拍")
+                .font(.headline)
+                .foregroundStyle(ToneTunerDesign.primaryLabel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Spacer()
             Image(systemName: "hand.tap")
                 .font(.system(size: 24, weight: .semibold))
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .padding(10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .gesture(tapOnTouchDown)
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .toneTunerSurface(stroke: ToneTunerDesign.fillSecondary, cornerRadius: 26)
-        .accessibilityLabel("点击取拍")
+        .accessibilityLabel("轻按定拍")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { tap() }
     }
