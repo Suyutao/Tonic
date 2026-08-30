@@ -1,8 +1,8 @@
-# Tone Tuner Renovation Implementation Plan
+# Tonic Renovation Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Turn Tone Tuner into a focused, reliable iPhone tuner and metronome by removing invisible practice-history storage, making audio lifecycle and failure states explicit, and making the primary flows usable with Dynamic Type and accessibility settings.
+**Goal:** Turn Tonic into a focused, reliable iPhone tuner and metronome by removing invisible practice-history storage, making audio lifecycle and failure states explicit, and making the primary flows usable with Dynamic Type and accessibility settings.
 
 **Architecture:** Keep the two existing SwiftUI tabs, but give both audio engines a shared lifecycle contract: explicit idle, starting, running, interrupted, failed, and stopped states. The tuner and metronome views own presentation while services own AVAudioSession setup, interruption recovery, and teardown. Remove SwiftData entirely because the selected product direction is an immediate-use tool, not a practice log.
 

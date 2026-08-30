@@ -1,6 +1,6 @@
-# Tone Tuner
+# Tonic
 
-一个专注于即时使用的 iPhone 调音器和节拍器，使用 SwiftUI 与 AVFoundation 构建。
+Tonic 是一个专注于即时使用的 iPhone 调音器和节拍器，使用 SwiftUI 与 AVFoundation 构建。
 
 ## 功能
 
@@ -31,4 +31,3 @@ xcodebuild test \\
 ## 许可证
 
 [MIT](LICENSE)
-
