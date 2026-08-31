@@ -99,6 +99,7 @@ struct TunerPage: View {
     let noteChanges: [TunerNoteChange]
     let noteNamingStyle: NoteNamingStyle
     let accidentalStyle: AccidentalStyle
+    let usesNumericMorph: Bool
 
     private var usesCompactLayout: Bool { dynamicTypeSize.isAccessibilitySize }
     private var upperSpacing: CGFloat { usesCompactLayout ? 60 : 93 }
@@ -135,6 +136,7 @@ struct TunerPage: View {
                 Text(reading.map { String(format: "%.0f Hz", $0.frequency) } ?? "-- Hz")
                     .font(.title2)
                     .foregroundStyle(ToneTunerDesign.secondaryLabel)
+                    .modifier(TunerNumericMorph(value: reading?.frequency, isEnabled: usesNumericMorph))
                 Text(reading?.noteName(style: noteNamingStyle, accidentals: accidentalStyle) ?? "--")
                     .font(.system(size: 128, weight: .bold, design: .rounded))
                     .foregroundStyle(ToneTunerDesign.primaryLabel)
@@ -149,6 +151,7 @@ struct TunerPage: View {
                     .font(.title2)
                     .foregroundStyle(ToneTunerDesign.secondaryLabel)
                     .offset(y: -6)
+                    .modifier(TunerNumericMorph(value: reading?.cents, isEnabled: usesNumericMorph))
             }
             .padding(10)
             .frame(maxWidth: .infinity)
@@ -164,5 +167,22 @@ struct TunerPage: View {
         .frame(maxWidth: .infinity)
         .toneTunerSurface(fill: ToneTunerDesign.backgroundElevated, stroke: ToneTunerDesign.fillPrimary, cornerRadius: 36)
         .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+    }
+}
+
+private struct TunerNumericMorph: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let value: Double?
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled && !reduceMotion {
+            content
+                .contentTransition(.numericText(value: value ?? 0))
+                .animation(.snappy(duration: 0.18), value: Int((value ?? 0).rounded()))
+        } else {
+            content
+        }
     }
 }

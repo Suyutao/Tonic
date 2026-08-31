@@ -10,6 +10,7 @@ struct ContentView: View {
     @AppStorage("pitchInputSensitivity") private var pitchInputSensitivity = PitchInputSensitivity.maximum.rawValue
     @AppStorage("noteNamingStyle") private var noteNamingStyle = NoteNamingStyle.letter.rawValue
     @AppStorage("accidentalStyle") private var accidentalStyle = AccidentalStyle.sharp.rawValue
+    @AppStorage("usesNumericMorph") private var usesNumericMorph = false
     @AppStorage("metronomeTempo") private var tempo = 96.0
     @AppStorage("metronomeBeatsPerBar") private var beatsPerBar = 4
     @State private var selectedPage = 0
@@ -40,7 +41,7 @@ struct ContentView: View {
             GeometryReader { _ in
                 VStack(spacing: 0) {
                     TabView(selection: $selectedPage) {
-                        TunerPage(detector: detector, reading: displayedReading, history: tunerHistory, noteChanges: tunerNoteChanges, noteNamingStyle: noteNamingPreference, accidentalStyle: accidentalPreference).tag(0)
+                        TunerPage(detector: detector, reading: displayedReading, history: tunerHistory, noteChanges: tunerNoteChanges, noteNamingStyle: noteNamingPreference, accidentalStyle: accidentalPreference, usesNumericMorph: usesNumericMorph).tag(0)
                         MetronomePage(metronome: metronome, tempo: $tempo, beatsPerBar: $beatsPerBar, tap: registerTap).tag(1)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
@@ -75,7 +76,14 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearanceMode == "dark" ? .dark : nil)
         .tint(ToneTunerDesign.tint)
-        .onAppear { detector.setInputSensitivity(pitchInputSensitivityPreference) }
+        .onAppear {
+            detector.setInputSensitivity(pitchInputSensitivityPreference)
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--tonic-diagnostic") {
+                detector.start()
+            }
+#endif
+        }
         .onChange(of: detector.frequency) { _, frequency in
             guard let frequency else { return }
             lastDetectedFrequency = frequency
@@ -84,9 +92,22 @@ struct ContentView: View {
             guard let cents else { return }
             tunerHistory.append(cents)
             let discardedCount = max(0, tunerHistory.count - 120)
-            guard discardedCount > 0 else { return }
-            tunerHistory.removeFirst(discardedCount)
-            tunerNoteChanges = tunerNoteChanges.compactMap { $0.shifted(leftBy: discardedCount) }
+            if discardedCount > 0 {
+                tunerHistory.removeFirst(discardedCount)
+                tunerNoteChanges = tunerNoteChanges.compactMap { $0.shifted(leftBy: discardedCount) }
+            }
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--tonic-diagnostic"),
+               let reading {
+                let timestampText = String(format: "%.3f", Date().timeIntervalSince1970)
+                let displayFrequency = String(format: "%.4f", reading.frequency)
+                let letterName = reading.noteName(style: .letter, accidentals: accidentalPreference)
+                let solfegeName = reading.noteName(style: .solfege, accidentals: accidentalPreference)
+                let centsText = String(format: "%.4f", reading.cents)
+                print("TONIC_DISPLAY,\(timestampText),\(displayFrequency),\(letterName),\(solfegeName),\(centsText),\(tunerHistory.count - 1),\(centsText)")
+                fflush(stdout)
+            }
+#endif
         }
         .onChange(of: reading?.noteName(style: noteNamingPreference, accidentals: accidentalPreference)) { oldName, newName in
             guard let newName, newName != oldName, !tunerHistory.isEmpty else { return }
@@ -115,7 +136,7 @@ struct ContentView: View {
             Button("取消", role: .cancel) { }
         } message: { Text("请在系统“设置”中允许 Tonic 使用麦克风。") }
         .sheet(isPresented: $showsSettingsSheet) {
-            TonicSettingsView(referencePitch: $referencePitch, appearanceMode: $appearanceMode, noteNamingStyle: $noteNamingStyle, accidentalStyle: $accidentalStyle, pitchInputSensitivity: $pitchInputSensitivity)
+            TonicSettingsView(referencePitch: $referencePitch, appearanceMode: $appearanceMode, noteNamingStyle: $noteNamingStyle, accidentalStyle: $accidentalStyle, pitchInputSensitivity: $pitchInputSensitivity, usesNumericMorph: $usesNumericMorph)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -226,6 +247,7 @@ private struct TonicSettingsView: View {
     @Binding var noteNamingStyle: String
     @Binding var accidentalStyle: String
     @Binding var pitchInputSensitivity: String
+    @Binding var usesNumericMorph: Bool
 
     var body: some View {
         NavigationStack {
@@ -249,6 +271,7 @@ private struct TonicSettingsView: View {
                         Text("高").tag(PitchInputSensitivity.high.rawValue)
                         Text("标准").tag(PitchInputSensitivity.standard.rawValue)
                     }
+                    Toggle("Morph 数字动效", isOn: $usesNumericMorph)
                 }
                 Section("外观") {
                     Picker("外观", selection: $appearanceMode) {

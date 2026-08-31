@@ -43,7 +43,7 @@ final class PitchReadingTests: XCTestCase {
 
     func testNoteNamesAroundA4() {
         XCTAssertEqual(PitchReading(frequency: 261.625565, referencePitch: 440).noteName, "C4")
-        XCTAssertEqual(PitchReading(frequency: 466.163762, referencePitch: 440).noteName, "A#4")
+        XCTAssertEqual(PitchReading(frequency: 466.163762, referencePitch: 440).noteName, "A♯4")
     }
 
     func testPitchReadingRespectsNamingAndAccidentalPreferences() {
@@ -90,5 +90,42 @@ final class PitchReadingTests: XCTestCase {
             PitchDetector.estimatePitch(samples: $0.baseAddress!, count: $0.count, sampleRate: sampleRate)
         }
         XCTAssertEqual(result.frequency ?? 0, 196, accuracy: 3)
+    }
+
+    func testPitchDetectorFindsLowEWithRealtimeTapWindow() {
+        let sampleRate = 44_100.0
+        let samples = (0..<1_536).map { index in
+            Float(sin(2 * Double.pi * 82.4069 * Double(index) / sampleRate))
+        }
+        let result = samples.withUnsafeBufferPointer {
+            PitchDetector.estimatePitch(samples: $0.baseAddress!, count: $0.count, sampleRate: sampleRate)
+        }
+        XCTAssertEqual(result.frequency ?? 0, 82.4069, accuracy: 1.5)
+    }
+
+    func testPitchDetectorPrefers440HzOverNearbyRoomReflection() {
+        let sampleRate = 44_100.0
+        let samples = (0..<1_536).map { index in
+            let time = Double(index) / sampleRate
+            let fundamental = sin(2 * .pi * 440 * time)
+            let reflection = 0.20 * sin(2 * .pi * 492 * time + 0.65)
+            let roomNoise = 0.03 * sin(2 * .pi * 87 * time + 1.1)
+            return Float(fundamental + reflection + roomNoise)
+        }
+        let result = samples.withUnsafeBufferPointer {
+            PitchDetector.estimatePitch(samples: $0.baseAddress!, count: $0.count, sampleRate: sampleRate)
+        }
+        XCTAssertEqual(result.frequency ?? 0, 440, accuracy: 3)
+    }
+
+    func testPitchDetectorFinds785Hz() {
+        let sampleRate = 44_100.0
+        let samples = (0..<1_536).map { index in
+            Float(sin(2 * Double.pi * 785 * Double(index) / sampleRate))
+        }
+        let result = samples.withUnsafeBufferPointer {
+            PitchDetector.estimatePitch(samples: $0.baseAddress!, count: $0.count, sampleRate: sampleRate)
+        }
+        XCTAssertEqual(result.frequency ?? 0, 785, accuracy: 3)
     }
 }

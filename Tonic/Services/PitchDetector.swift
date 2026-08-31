@@ -1,6 +1,7 @@
 import AVFoundation
 import Combine
 import Foundation
+import Darwin
 
 enum PitchInputSensitivity: String {
     case maximum
@@ -33,6 +34,12 @@ final class PitchDetector: ObservableObject {
     private var notificationTokens: [NSObjectProtocol] = []
     private var lastPublishedAt = 0.0
     private var missedFrames = 0
+    private var rejectedFrames = 0
+    private var pendingFrequency: Double?
+    private var pendingFrequencyFrames = 0
+#if DEBUG
+    private var lastDiagnosticAt = 0.0
+#endif
     private var minimumInputLevel = PitchInputSensitivity.maximum.minimumInputLevel
 
     init(sessionCoordinator: AudioSessionCoordinating = AudioSessionCoordinator.shared) {
@@ -88,6 +95,12 @@ final class PitchDetector: ObservableObject {
                 try self.engine.start()
                 DispatchQueue.main.async { [weak self] in
                     self?.transition(.started)
+#if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--tonic-diagnostic") {
+                        print("TONIC_READY")
+                        fflush(stdout)
+                    }
+#endif
                 }
             } catch is AudioEngineError {
                 self.stopEngineOnLifecycleQueue()
@@ -114,6 +127,9 @@ final class PitchDetector: ObservableObject {
                 self.inputLevel = 0
                 self.smoothedFrequency = nil
                 self.missedFrames = 0
+                self.rejectedFrames = 0
+                self.pendingFrequency = nil
+                self.pendingFrequencyFrames = 0
                 self.lastPublishedAt = 0
             }
         }
@@ -158,11 +174,22 @@ final class PitchDetector: ObservableObject {
         guard !isTapInstalled else { return }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        input.installTap(onBus: 0, bufferSize: 768, format: format) { [weak self] buffer, _ in
+        // 1536 frames cover a full period at 55 Hz while keeping analysis latency near 35 ms at 44.1 kHz.
+        input.installTap(onBus: 0, bufferSize: 1_536, format: format) { [weak self] buffer, _ in
             guard let samples = buffer.floatChannelData?[0] else { return }
             let result = Self.estimatePitch(samples: samples, count: Int(buffer.frameLength), sampleRate: format.sampleRate, minimumInputLevel: self?.minimumInputLevel ?? .leastNonzeroMagnitude)
             let smoothed = self?.smoothed(result.frequency)
             let now = ProcessInfo.processInfo.systemUptime
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--tonic-diagnostic"),
+               now - (self?.lastDiagnosticAt ?? 0) >= 0.1 {
+                self?.lastDiagnosticAt = now
+                let timestamp = Date().timeIntervalSince1970
+                let rawText = result.frequency.map { String(format: "%.4f", $0) } ?? ""
+                let smoothText = smoothed.map { String(format: "%.4f", $0) } ?? ""
+                print(String(format: "TONIC_CSV,%.3f,%@,%@,%.6f", timestamp, rawText, smoothText, result.level))
+            }
+#endif
             guard now - (self?.lastPublishedAt ?? 0) >= (1.0 / 60.0) else { return }
             self?.lastPublishedAt = now
             DispatchQueue.main.async {
@@ -197,15 +224,28 @@ final class PitchDetector: ObservableObject {
         let level = sqrt(energy / Float(count))
         guard level > minimumInputLevel else { return (nil, level) }
 
-        let minLag = max(2, Int(sampleRate / 1_100))
-        let maxLag = min(Int(sampleRate / 55), count / 2)
+        // Analyze every other sample. The time window stays ~35 ms, while the
+        // quadratic difference pass does roughly one quarter of the work.
+        let analysisSamples = stride(from: 0, to: count, by: 2).map { samples[$0] }
+        let analysisCount = analysisSamples.count
+        let analysisRate = sampleRate / 2
+        guard analysisCount > 2 else { return (nil, level) }
+
+        var analysisMean: Float = 0
+        for sample in analysisSamples { analysisMean += sample }
+        analysisMean /= Float(analysisCount)
+
+        let minLag = max(2, Int(analysisRate / 1_100))
+        // A lag may use the available prefix of the window; limiting to count / 2
+        // would exclude the lowest supported fundamental from a 1536-frame tap.
+        let maxLag = min(Int(analysisRate / 55), analysisCount - 2)
         guard minLag < maxLag else { return (nil, level) }
 
         var difference = [Float](repeating: 0, count: maxLag + 1)
         for lag in 1...maxLag {
             var sum: Float = 0
-            for index in 0..<(count - lag) {
-                let delta = (samples[index] - mean) - (samples[index + lag] - mean)
+            for index in 0..<(analysisCount - lag) {
+                let delta = (analysisSamples[index] - analysisMean) - (analysisSamples[index + lag] - analysisMean)
                 sum += delta * delta
             }
             difference[lag] = sum
@@ -218,7 +258,10 @@ final class PitchDetector: ObservableObject {
             cumulativeDifference[lag] = difference[lag] * Float(lag) / max(runningSum, .leastNonzeroMagnitude)
         }
 
-        let threshold: Float = 0.18
+        // The input microphone is exposed to reflections and room noise. A loose
+        // threshold can select an earlier, non-fundamental period; only accept a
+        // pronounced YIN minimum for a live reading.
+        let threshold: Float = 0.12
         var bestLag: Int?
         for lag in minLag..<maxLag where cumulativeDifference[lag] < threshold {
             var localMinimum = lag
@@ -233,7 +276,7 @@ final class PitchDetector: ObservableObject {
             bestLag = (minLag...maxLag).min { cumulativeDifference[$0] < cumulativeDifference[$1] }
         }
 
-        guard let lag = bestLag, cumulativeDifference[lag] < 0.35 else { return (nil, level) }
+        guard let lag = bestLag, cumulativeDifference[lag] < 0.20 else { return (nil, level) }
         var fractionalLag = Double(lag)
         if lag > minLag, lag < maxLag {
             let left = Double(cumulativeDifference[lag - 1])
@@ -245,20 +288,60 @@ final class PitchDetector: ObservableObject {
             }
         }
         guard fractionalLag > 0 else { return (nil, level) }
-        return (sampleRate / fractionalLag, level)
+        return (analysisRate / fractionalLag, level)
     }
 
     private func smoothed(_ estimate: Double?) -> Double? {
         guard let estimate else {
             missedFrames += 1
+            pendingFrequency = nil
+            pendingFrequencyFrames = 0
             if missedFrames <= 2 { return smoothedFrequency }
             smoothedFrequency = nil
+            rejectedFrames = 0
             return nil
         }
         missedFrames = 0
+        if smoothedFrequency == nil {
+            if let pending = pendingFrequency {
+                let change = abs(estimate - pending) / max(pending, .leastNonzeroMagnitude)
+                if change <= 0.05 {
+                    pendingFrequencyFrames += 1
+                } else {
+                    pendingFrequency = estimate
+                    pendingFrequencyFrames = 1
+                }
+            } else {
+                pendingFrequency = estimate
+                pendingFrequencyFrames = 1
+            }
+            guard pendingFrequencyFrames >= 2 else { return nil }
+            pendingFrequency = nil
+            pendingFrequencyFrames = 0
+            smoothedFrequency = estimate
+            return estimate
+        }
         if let previous = smoothedFrequency {
             let ratio = estimate / previous
-            guard (0.75...1.33).contains(ratio) else { return previous }
+            let relativeChange = abs(estimate - previous) / max(previous, .leastNonzeroMagnitude)
+            if relativeChange > 0.08, (0.75...1.33).contains(ratio) {
+                // A genuine note change can still be within the octave guard.
+                // Confirm it twice, then avoid dragging the new note toward the old one.
+                rejectedFrames += 1
+                if rejectedFrames < 2 { return previous }
+                rejectedFrames = 0
+                smoothedFrequency = estimate
+                return estimate
+            }
+            if !(0.75...1.33).contains(ratio) {
+                // Suppress one isolated octave/noise jump, but accept a real note change promptly.
+                rejectedFrames += 1
+                if rejectedFrames < 2 { return previous }
+                rejectedFrames = 0
+                smoothedFrequency = estimate
+                return estimate
+            }
+            rejectedFrames = 0
             let result = previous + (estimate - previous) * 0.7
             smoothedFrequency = result
             return result
