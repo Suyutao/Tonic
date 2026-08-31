@@ -7,8 +7,8 @@ Tonic 是一个专注于即时使用的 iPhone 调音器和节拍器，使用 Sw
 | 调音器 | 节拍器 |
 | --- | --- |
 | ![Tuner](docs/images/tuner.jpg) | ![Metronome](docs/images/metronome.jpg) |
-| ![Metronome controls](docs/images/metronome-controls.jpg) | ![Pitch history graph](docs/images/pitch-history.jpg) |
-| ![Metronome header](docs/images/metronome-header.jpg) | ![Tuner header](docs/images/tuner-header.jpg) |
+| ![Pitch history graph](docs/images/pitch-history.jpg) | ![Metronome controls](docs/images/metronome-controls.jpg) |
+| ![Tuner header](docs/images/tuner-header.jpg) | ![Metronome header](docs/images/metronome-header.jpg) |
 
 ## 设计方向
 
