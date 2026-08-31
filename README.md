@@ -2,6 +2,25 @@
 
 Tonic 是一个专注于即时使用的 iPhone 调音器和节拍器，使用 SwiftUI 与 AVFoundation 构建。
 
+## 界面预览
+
+调音器与节拍器的核心界面：
+
+| 调音器 | 节拍器 |
+| --- | --- |
+| ![Tuner](docs/images/tuner.jpg) | ![Metronome](docs/images/metronome.jpg) |
+
+关键交互细节：
+
+| 节拍器控制 | 音高历史图 |
+| --- | --- |
+| ![Metronome controls](docs/images/metronome-controls.jpg) | ![Pitch history graph](docs/images/pitch-history.jpg) |
+
+调音器和节拍器页面也针对小屏幕布局进行了优化：
+
+![Metronome header](docs/images/metronome-header.jpg)
+![Tuner header](docs/images/tuner-header.jpg)
+
 ## 设计方向
 
 - 使用 SwiftUI 构建界面，保持操作反馈自然、界面切换流畅。
