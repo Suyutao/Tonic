@@ -60,6 +60,7 @@ final class MetronomeEngine: ObservableObject {
     }
 
     func start(tempo: Int, beatsPerBar: Int) {
+        guard !state.isActive else { return }
         stop()
         transition(.begin)
         do {

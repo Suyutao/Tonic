@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var tapTempo = TapTempoAverager()
     @State private var showsSettingsAlert = false
     @State private var showsSettingsSheet = false
+    @State private var isPageTransitioning = false
     @AppStorage("appearanceMode") private var appearanceMode = "dark"
 
     init(initialPage: Int = 0) {
@@ -45,6 +46,7 @@ struct ContentView: View {
                         MetronomePage(metronome: metronome, tempo: $tempo, beatsPerBar: $beatsPerBar, tap: registerTap).tag(1)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
+                    .simultaneousGesture(pageTransitionGesture)
                     .frame(maxHeight: .infinity)
 
                 Button(action: togglePrimaryAction) {
@@ -55,6 +57,7 @@ struct ContentView: View {
                 }
                 .modifier(TonicPrimaryButtonStyle())
                 .foregroundStyle(ToneTunerDesign.primaryLabel)
+                .disabled(isPageTransitioning)
                 .frame(height: 73)
                 .padding(.horizontal, 20)
                     .padding(.top, 10)
@@ -74,7 +77,7 @@ struct ContentView: View {
                 }
             }
         }
-        .preferredColorScheme(appearanceMode == "dark" ? .dark : nil)
+        .preferredColorScheme(preferredColorScheme)
         .tint(ToneTunerDesign.tint)
         .onAppear {
             detector.setInputSensitivity(pitchInputSensitivityPreference)
@@ -137,6 +140,7 @@ struct ContentView: View {
         } message: { Text("请在系统“设置”中允许 Tonic 使用麦克风。") }
         .sheet(isPresented: $showsSettingsSheet) {
             TonicSettingsView(referencePitch: $referencePitch, appearanceMode: $appearanceMode, noteNamingStyle: $noteNamingStyle, accidentalStyle: $accidentalStyle, pitchInputSensitivity: $pitchInputSensitivity, usesNumericMorph: $usesNumericMorph)
+                .preferredColorScheme(preferredColorScheme)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -158,7 +162,24 @@ struct ContentView: View {
         PitchInputSensitivity(rawValue: pitchInputSensitivity) ?? .maximum
     }
 
+    private var preferredColorScheme: ColorScheme? {
+        appearanceMode == "dark" ? .dark : nil
+    }
+
+    private var pageTransitionGesture: some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { _ in
+                isPageTransitioning = true
+            }
+            .onEnded { _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    isPageTransitioning = false
+                }
+            }
+    }
+
     private func togglePrimaryAction() {
+        guard !isPageTransitioning else { return }
         if selectedPage == 0 {
             if detector.isRunning {
                 detector.stop()

@@ -75,6 +75,7 @@ final class PitchDetector: ObservableObject {
     }
 
     func start() {
+        guard !state.isActive else { return }
         refreshAuthorization()
         guard authorization == .granted else {
             if authorization == .denied || authorization == .undetermined {
