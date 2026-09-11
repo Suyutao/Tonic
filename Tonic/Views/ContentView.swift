@@ -140,7 +140,7 @@ struct ContentView: View {
         } message: { Text("请在系统“设置”中允许 Tonic 使用麦克风。") }
         .sheet(isPresented: $showsSettingsSheet) {
             TonicSettingsView(referencePitch: $referencePitch, appearanceMode: $appearanceMode, noteNamingStyle: $noteNamingStyle, accidentalStyle: $accidentalStyle, pitchInputSensitivity: $pitchInputSensitivity, usesNumericMorph: $usesNumericMorph)
-                .preferredColorScheme(preferredColorScheme)
+                .environment(\.colorScheme, settingsColorScheme)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -164,6 +164,13 @@ struct ContentView: View {
 
     private var preferredColorScheme: ColorScheme? {
         appearanceMode == "dark" ? .dark : nil
+    }
+
+    private var settingsColorScheme: ColorScheme {
+        if appearanceMode == "dark" {
+            return .dark
+        }
+        return UIScreen.main.traitCollection.userInterfaceStyle == .dark ? .dark : .light
     }
 
     private var pageTransitionGesture: some Gesture {
